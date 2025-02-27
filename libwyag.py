@@ -28,6 +28,21 @@ argsp.add_argument("type",
 argsp.add_argument("object",
                    metavar= "object",
                    help = "The object to display")
+argsp = argsubparsers.add_parser(
+    "hash-object",
+    help = "Compute object ID and optionally creates a blob from a file")
+argsp.add_argument("-t",
+                   metavar="type",
+                   dest="type",
+                   choices=["blob","commit","tag","tree"],
+                   default="blob",
+                   help="Specify the Type")
+argsp.add_argument("-w",
+                   dest="write",
+                   action="store_true",
+                   help="Actually write the object into the database")
+argsp.add_argument("path",
+                   help="Read object from <file>")
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
     match args.command:
