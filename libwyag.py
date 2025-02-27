@@ -134,3 +134,21 @@ def repo_default_config():
 
 def cmd_init(args):
     repo_create(args.path)
+def repo_find(path=".",required = True):
+    path = os.path.realpath(path)
+    
+    if os.path.isdir(os.path.join(path,".git")):
+        return GitRepository(path)
+    #If we have not retunred, recure in parent if w
+    parent = os.path.realpath(os.path.join(path,".."))
+
+    if parent == path:
+        #Botoom case
+        #os.path.join("/","..") == "/":
+        #If parent==path,then path is root.
+        if required:
+            raise Exception("No git directory.")
+        else:
+            return None
+        #recursive case
+        return repo_find(parent,required)
