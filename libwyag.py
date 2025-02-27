@@ -20,7 +20,14 @@ argsp.add_argument("path",
                    nargs = "?",
                    default=".",
                    help="Where tp create the repository.")
-
+argsp = argsubparsers.add_parser("cat-file",help="Provide content of repository object")
+argsp.add_argument("type",
+                   metavar="type",
+                   choices=["blob","commit","tag","tree"],
+                   help = "Specify the type")
+argsp.add_argument("object",
+                   metavar= "object",
+                   help = "The object to display")
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
     match args.command:
@@ -172,7 +179,7 @@ def repo_find(path=".",required = True):
         return repo_find(parent,required)
 def object_read(repo,sha):
     """Read object sha from git repo. Return a GitObject whose exact type depends on the object."""
-    path = repo_file(repo,"obkects",sha[0:2],sha[2:]) 
+    path = repo_file(repo,"objects",sha[0:2],sha[2:]) 
 
     if not os.path.isfile(path):
         return None
@@ -224,3 +231,8 @@ class GitBlob(GitObject):
         return self.blobdata
     def deserialize(self, data):
         self.blobdata = data
+def cmd_cat_file(args):
+    repo = repo_find()
+    cat_file(repo,args.object,fmt=args.type.encode())
+def cat_file(repo,obj,fmt=None):
+    obj = object_read()            
