@@ -86,7 +86,7 @@ class GitObject(object):
         raise Exception("Unimplemented!")
     def init(self):
         pass
-    
+
 def repo_path(repo, *path):
     """Compute path under repo's gitdir."""
     return os.path.join(repo.gitdir, *path)
@@ -170,3 +170,33 @@ def repo_find(path=".",required = True):
             return None
         #recursive case
         return repo_find(parent,required)
+def object_read(repo,sha):
+    """Read object sha from git repo. Return a GitObject whose exact type depends on the object."""
+    path = repo_file(repo,"obkects",sha[0:2],sha[2:]) 
+
+    if not os.path.isfile(path):
+        return None
+    with open (path, "rb") as f:
+        raw = zlib.decompress(f.read())
+
+        #read object type
+        x = raw.find(b' ')
+        fmt = raw[0:x]
+
+        #read and validate object size
+        y = raw.find(b'\x00',x)
+        size = int(raw[x:y].decode("ascii"))
+        if size != len(raw)-y-1:
+            raise Exception(f"Malformed object {sha}: bad length")
+
+        #Pick constructor
+        match fmt:
+            case b'commit' : c=GitCommit
+            case b'tree' : c=GitTree
+            case b'tag' : GitTag     
+            case b'blob' : GitBlob
+            case _:
+                raise Exception(f"unknown type {fmt.decode("ascii")} for object {sha}")
+            
+        #call conts and return object
+        return c(raw[y+1:])    
