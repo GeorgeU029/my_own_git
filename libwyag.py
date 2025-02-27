@@ -43,6 +43,7 @@ argsp.add_argument("-w",
                    help="Actually write the object into the database")
 argsp.add_argument("path",
                    help="Read object from <file>")
+
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
     match args.command:
@@ -254,3 +255,24 @@ def cat_file(repo,obj,fmt=None):
     sys.stdout.buffer.write(obj.serialize())
 def object_find(repo,name,fmt=None,folllow=True):
     return name    
+def cmd_hash_object(args):
+    if args.write:
+        repo = repo_find()
+    else:
+        repo = None
+    with open(args.path, "rb") as fd:
+        sha = object_hash(fd,args.type.encode(),repo)
+        print(sha)   
+def object_hash(fd,fmt,repo=None):
+    """Hash object,writeting it to repo if provided."""             
+    data = fd.read()
+
+    #chose a constructor according to fmt argument
+    match fmt:
+        case b'commit' : obj=GitCommit(data)
+        case b'tree' : obj=GitTree(data)
+        case b'tag' : obj=GitTag(data)
+        case b'blob' : obj=GitBlob(data)
+        case _: raise Exception(f"Unknown type {fmt}!")
+
+    return object_write(obj,repo)        
