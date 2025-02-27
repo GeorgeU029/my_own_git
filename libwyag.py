@@ -200,3 +200,19 @@ def object_read(repo,sha):
             
         #call conts and return object
         return c(raw[y+1:])    
+def object_write(obj, repo=None):
+    #Serialize object data
+    data = obj.serialize()    
+    #adding the header
+    result = obj.fmt + b' ' + str(len(data)).encode()+ b'\x00' + data
+    #compute the hash 
+    sha = hashlib.sha1(result).hexdigest()
+    
+    if repo:
+        path = repo_file(repo,"objects",sha[0:2],sha[2:],mkdir=True)
+
+        if not os.path.exists(path):
+            with open(path, 'wb') as f:
+                #Compress and write
+                f.write(zlib.compress(result))
+    return sha                
