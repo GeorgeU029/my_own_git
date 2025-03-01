@@ -43,7 +43,12 @@ argsp.add_argument("-w",
                    help="Actually write the object into the database")
 argsp.add_argument("path",
                    help="Read object from <file>")
-
+argsp = argsubparsers.add_parser("log", help = "Display history of a given commit.")
+argsp.add_argument("commit",
+                   default="HEAD",
+                   nargs="?",
+                   help="Commit to start at."
+                   )
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
     match args.command:
@@ -317,6 +322,53 @@ def kvlm_serialize(kvlm):
             val = [ val ]
 
         for v in val:
-            ret += k + b" "+ (v.replace(b'\n',b'\n ')) + b'\n'
+            ret += k + b' '+ (v.replace(b'\n',b'\n ')) + b'\n'
+    
+    #Append message
     ret += b'\n' + kvlm[None]
     return ret            
+class GitCommit(GitObject):
+    fmt =  b'commit'
+
+    def deserialize(self,data):
+        self.kvlm = kvlm_parse(data)
+
+    def serialize(self):
+        return kvlm_serialize(self.kvlm)
+    def init(self):
+        self.kvlm = dict()        
+
+def cmd_log(args):
+    repo = repo_find()
+
+    print("digraph wyag{")
+    print(" node[shape=rect]")
+    log_graphviz(repo,object_find(repo,args.commit),set())
+    print("}")
+def log_graphviz(repo,sha,seen):
+    
+    if sha in seen:
+        return
+    seen.add(sha)
+
+    commit = object_read(repo,sha)
+    message = commit.kvlm[None].decode("utf8").strip()
+    message = message.replace("\\","\\\\")
+    message = message.replace("\"","\\\"")
+
+    if "\n" in message:
+        message = message[:message.index("\n")]
+    printf(f" c_{sha} [label=\"{sha[0:7]}:{message}\"]")  
+    assert commit.fmt==b'commit'
+
+    if not b'parent' in commit.kvlm.keys():
+        return
+    parents = commit.kvlm[b'parent'] 
+
+    if type(parents) != list:
+        parents = [ parents ] 
+    for p in parents:
+        p = p.decode("ascii")
+        print(f" c_{sha} -> c_{p};")
+        log_graphviz(repo, p,seen)        
+       
