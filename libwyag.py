@@ -293,8 +293,38 @@ def cmd_cat_file(args):
 def cat_file(repo,obj,fmt=None):
     obj = object_read(repo,object_find(repo,obj,fmt=fmt))
     sys.stdout.buffer.write(obj.serialize())
-def object_find(repo,name,fmt=None,folllow=True):
-    return name    
+def object_find(repo, name, fmt=None, follow=True):
+    sha = object_resolve(repo, name)
+
+    if not sha:
+        raise Exception(f"No such reference {name}.")
+
+    if len(sha) > 1:
+        raise Exception("Ambiguous reference {name}: Candidates are:\n - {'\n - '.join(sha)}.")
+
+    sha = sha[0]
+
+    if not fmt:
+        return sha
+
+    while True:
+        obj = object_read(repo, sha)
+
+
+        if obj.fmt == fmt:
+            return sha
+
+        if not follow:
+            return None
+
+        # Follow tags
+        if obj.fmt == b'tag':
+            sha = obj.kvlm[b'object'].decode("ascii")
+        elif obj.fmt == b'commit' and fmt == b'tree':
+            sha = obj.kvlm[b'tree'].decode("ascii")
+        else:
+            return None 
+        
 def cmd_hash_object(args):
     if args.write:
         repo = repo_find()
@@ -597,6 +627,47 @@ def ref_create(repo,ref_name,sha):
     with open(repo_file(repo,"refs/" + ref_name), 'w') as fp:
         fp.write(sha + "\n")           
 
+def object_resolve(repo, name):
+    """Resolve name to an object hash in repo.
+
+This function is aware of:
+
+ - the HEAD literal
+    - short and long hashes
+    - tags
+    - branches
+    - remote branches"""
+    candidates = list()
+    hashRE = re.compile(r"^[0-9A-Fa-f]{4,40}$")
+
+    # Empty string?  Abort.
+    if not name.strip():
+        return None
+
+    # Head is nonambiguous
+    if name == "HEAD":
+        return [ ref_resolve(repo, "HEAD") ]
+
+    # If it's a hex string, try for a hash.
+    if hashRE.match(name):
+        name = name.lower()
+        prefix = name[0:2]
+        path = repo_dir(repo, "objects", prefix, mkdir=False)
+        if path:
+            rem = name[2:]
+            for f in os.listdir(path):
+                if f.startswith(rem):
+
+                    candidates.append(prefix + f)
 
 
+    as_tag = ref_resolve(repo, "refs/tags/" + name)
+    if as_tag: # Did we find a tag?
+        candidates.append(as_tag)
+
+    as_branch = ref_resolve(repo, "refs/heads/" + name)
+    if as_branch: # Did we find a branch?
+        candidates.append(as_branch)
+
+    return candidates
                
